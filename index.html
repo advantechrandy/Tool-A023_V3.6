@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人體接觸高溫物體能量計算</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        :root {
+            --panel-bg: #1a1a1a;
+            --panel-border: #333;
+            --accent-orange: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --display-bg: #000000;
+        }
+
+        body {
+            background-color: #0f172a;
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 20px 20px;
+            color: #e2e8f0;
+            font-family: 'Share Tech Mono', 'Noto Sans TC', monospace;
+        }
+
+        .industrial-panel {
+            background: var(--panel-bg);
+            border: 2px solid var(--panel-border);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5), 5px 5px 20px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .industrial-panel::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--accent-orange), #7c2d12);
+        }
+
+        .digital-display {
+            background: var(--display-bg);
+            border: 1px solid #444;
+            color: #00ff41;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+            padding: 1.5rem 1rem;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .input-field {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 0.5rem;
+            width: 100%;
+            border-radius: 2px;
+            font-size: 0.875rem;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent-cyan);
+            outline: none;
+            box-shadow: 0 0 5px var(--accent-cyan);
+        }
+
+        .label-text {
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+
+        .rivet {
+            width: 8px;
+            height: 8px;
+            background: #444;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: inset -1px -1px 2px #000;
+        }
+
+        .k-meter {
+            height: 4px;
+            background: #333;
+            width: 100%;
+            margin-top: 4px;
+            position: relative;
+        }
+        .k-meter-fill {
+            height: 100%;
+            background: var(--accent-cyan);
+            transition: width 0.3s ease-out;
+        }
+
+        .theory-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 4px solid var(--accent-cyan);
+        }
+
+        .math-container {
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex items-center justify-center min-h-screen">
+    <div class="max-w-5xl w-full industrial-panel p-6 md:p-10">
+        <!-- 裝飾用鉚釘 -->
+        <div class="rivet top-2 left-2"></div><div class="rivet top-2 right-2"></div>
+        <div class="rivet bottom-2 left-2"></div><div class="rivet bottom-2 right-2"></div>
+
+        <header class="mb-8 border-b border-zinc-700 pb-4 flex justify-between items-end">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black text-white tracking-tighter uppercase">Thermal Contact Monitor</h1>
+                <p class="text-amber-500 text-xs font-bold">人體接觸高溫物體能量計算 V3.6</p>
+            </div>
+            <div class="text-right hidden md:block text-zinc-500 text-[10px]">
+                STATUS: HEAT_INJURY_ANALYSIS<br>UNIT: JOULES (J)
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <!-- 熱源設定 -->
+            <div class="space-y-4 bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <h3 class="text-orange-500 text-xs font-bold flex items-center uppercase">
+                    <span class="w-2 h-2 bg-orange-500 mr-2"></span> 熱源 (Source Object)
+                </h3>
+                <div>
+                    <span class="label-text">熱源溫度 Temp (°C)</span>
+                    <input type="number" id="t_hot" class="input-field" value="100">
+                </div>
+                <div>
+                    <span class="label-text">熱源材質係數 K-Source</span>
+                    <select id="k_source_preset" class="input-field mb-2 text-xs">
+                        <option value="400">金屬-銅 (Copper)</option>
+                        <option value="50">金屬-鋼鐵 (Steel)</option>
+                        <option value="1.2">石材/玻璃 (Stone/Glass)</option>
+                        <option value="0.2">塑膠 (ABS/Plastic)</option>
+                        <option value="0.1">乾燥木材 (Wood)</option>
+                    </select>
+                    <input type="number" id="k_source" class="input-field text-xs h-8" value="400" step="0.1">
+                    <div class="k-meter"><div id="k_s_fill" class="k-meter-fill bg-orange-500"></div></div>
+                </div>
+            </div>
+
+            <!-- 受體設定 (皮膚) -->
+            <div class="space-y-4 bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <h3 class="text-cyan-500 text-xs font-bold flex items-center uppercase">
+                    <span class="w-2 h-2 bg-cyan-500 mr-2"></span> 受體 (Human Skin)
+                </h3>
+                <div>
+                    <span class="label-text">皮膚溫度 Temp (°C)</span>
+                    <input type="number" id="t_skin" class="input-field" value="34">
+                </div>
+                <div>
+                    <span class="label-text">皮膚傳導係數 K-Skin</span>
+                    <input type="number" id="k_skin" class="input-field text-xs" value="0.21" step="0.01">
+                    <div class="k-meter"><div id="k_h_fill" class="k-meter-fill bg-cyan-500"></div></div>
+                </div>
+                <div>
+                    <span class="label-text">接觸面積 Area ($mm^2$)</span>
+                    <input type="number" id="area" class="input-field" value="500">
+                </div>
+            </div>
+
+            <!-- 接觸與時間 -->
+            <div class="space-y-4 bg-zinc-900/50 p-4 rounded border border-zinc-800">
+                <h3 class="text-zinc-400 text-xs font-bold flex items-center uppercase">
+                    <span class="w-2 h-2 bg-zinc-400 mr-2"></span> 接觸參數 Interface
+                </h3>
+                <div>
+                    <span class="label-text">介面有效厚度 ($mm$)</span>
+                    <input type="number" id="thickness" class="input-field" value="0.1" step="0.01">
+                </div>
+                <div>
+                    <span class="label-text">接觸秒數 Duration (s)</span>
+                    <input type="number" id="time" class="input-field" value="10" step="0.1">
+                </div>
+                <div class="pt-2 text-[10px] text-zinc-300">
+                    *皮膚表皮層平均厚度約 0.1mm。
+                </div>
+            </div>
+
+            <!-- 結果顯示 -->
+            <div class="flex flex-col space-y-4">
+                <div class="digital-display flex-grow flex flex-col justify-center items-center">
+                    <div class="text-[9px] text-emerald-300 font-bold uppercase tracking-widest">能量轉移 Total Energy</div>
+                    <div id="res_joules" class="text-4xl font-bold tracking-tighter">0.00</div>
+                    <div class="text-[10px] text-emerald-300 font-bold">JOULES</div>
+                </div>
+
+                <div id="danger_level" class="p-3 text-xs font-bold rounded text-center border">
+                    分析模組載入中...
+                </div>
+                
+                <div id="data_summary" class="p-3 bg-black/40 border border-zinc-800 rounded text-[10px] text-zinc-400 leading-tight">
+                    等待數據...
+                </div>
+            </div>
+        </div>
+
+        <!-- 物理公式模型 -->
+        <div class="theory-box p-5 rounded bg-zinc-900/80 border border-zinc-800">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
+                <h3 class="text-cyan-500 text-xs font-bold uppercase tracking-widest flex items-center">
+                    <span class="w-1 h-3 bg-cyan-500 mr-3"></span> 物理公式模型 (Physical Model)
+                </h3>
+                <span class="text-[9px] text-zinc-600 font-mono">MODEL_REF: STEADY_STATE_CONDUCTION_v3</span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                <div class="md:col-span-2 flex justify-center items-center bg-black/40 p-4 rounded border border-zinc-800/50 math-container">
+                    <div class="text-white">
+                        $$Q = \left( \frac{1}{\frac{d_{s}}{k_{s}} + \frac{d_{h}}{k_{h}}} \right) \cdot A \cdot \Delta T \cdot t$$
+                    </div>
+                </div>
+                <div class="md:col-span-3 space-y-2">
+                    <p class="text-[10px] text-zinc-400">
+                        本模型模擬<span class="text-zinc-200">「穩態導熱」</span>。根據醫學數據，皮膚吸收能量 > 100J 通常預示著<span class="text-red-400">三度灼傷風險</span>。
+                        皮膚吸收能量 > 30J 通常預示著<span class="text-red-400">二度灼傷風險</span>。
+                    </p>
+                    <ul class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px] font-mono text-zinc-500 border-t border-zinc-800/50 pt-2">
+                        <li><span class="text-orange-500">$k_s$</span>: 熱源導熱係數</li>
+                        <li><span class="text-cyan-500">$k_h$</span>: 皮膚導熱係數</li>
+                        <li><span class="text-zinc-300">$d_s, d_h$</span>: 有效傳熱厚度</li>
+                        <li><span class="text-zinc-300">$A$</span>: 接觸面積</li>
+                        <li><span class="text-zinc-300">$\Delta T$</span>: 溫差</li>
+                        <li><span class="text-zinc-300">$t$</span>: 時間 (s)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部腳註 -->
+        <div class="mt-6 flex justify-between items-center text-[10px] text-zinc-600 uppercase tracking-widest">
+            <span>Created by Randy Chen</span>
+        </div>
+    </div>
+
+    <script>
+        // 阻擋右鍵選單
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        }, false);
+
+        const kSourcePreset = document.getElementById('k_source_preset');
+        const kSourceInput = document.getElementById('k_source');
+
+        kSourcePreset.addEventListener('change', () => {
+            kSourceInput.value = kSourcePreset.value;
+            calculate();
+        });
+
+        function calculate() {
+            const Thot = parseFloat(document.getElementById('t_hot').value) || 0;
+            const Tskin = parseFloat(document.getElementById('t_skin').value) || 0;
+            const Ksource = parseFloat(document.getElementById('k_source').value) || 0.1;
+            const Kskin = parseFloat(document.getElementById('k_skin').value) || 0.2;
+            
+            const Area = (parseFloat(document.getElementById('area').value) || 0) / 1000000;
+            const Thickness = (parseFloat(document.getElementById('thickness').value) || 0.1) / 1000;
+            const Time = parseFloat(document.getElementById('time').value) || 0;
+
+            document.getElementById('k_s_fill').style.width = Math.min((Ksource / 400) * 100, 100) + "%";
+            document.getElementById('k_h_fill').style.width = Math.min((Kskin / 1) * 100, 100) + "%";
+
+            const DeltaT = Thot - Tskin;
+
+            if (DeltaT <= 0) {
+                document.getElementById('res_joules').innerText = "0.00";
+                document.getElementById('danger_level').innerText = "系統穩定";
+                document.getElementById('danger_level').className = "p-3 text-xs font-bold rounded text-center border border-zinc-800 bg-zinc-900 text-zinc-500";
+                document.getElementById('data_summary').innerText = "無顯著溫差。";
+                return;
+            }
+
+            const effectiveK = (Ksource * Kskin) / (Ksource + Kskin); 
+            const Q = (effectiveK * Area * DeltaT / Thickness) * Time;
+
+            document.getElementById('res_joules').innerText = Q.toLocaleString(undefined, {maximumFractionDigits: 2});
+
+            const statusDiv = document.getElementById('danger_level');
+            if (Q > 100) {
+                statusDiv.innerText = "!!! 嚴重灼傷：能量吸收超過臨界點 !!!";
+                statusDiv.className = "p-3 text-xs font-bold rounded text-center border border-red-500 bg-red-950 text-red-500 animate-pulse";
+            } else if (Q > 30) {
+                statusDiv.innerText = "中度警告：恐造成二度燙傷";
+                statusDiv.className = "p-3 text-xs font-bold rounded text-center border border-orange-500 bg-orange-950/20 text-orange-500";
+            } else {
+                statusDiv.innerText = "輕微熱感：安全範圍";
+                statusDiv.className = "p-3 text-xs font-bold rounded text-center border border-cyan-800 bg-zinc-900 text-cyan-500";
+            }
+
+            document.getElementById('data_summary').innerHTML = `
+                介面功率：${(Q/Time).toFixed(2)} W<br>
+                接觸總累積能量：${Q.toFixed(2)} J<br>
+                損傷評估：${Q > 100 ? '高導熱界面導致深層組織快速熱損傷' : '低風險'}
+            `;
+        }
+
+        const allInputs = ['t_hot', 't_skin', 'k_source', 'k_skin', 'area', 'thickness', 'time'];
+        allInputs.forEach(id => document.getElementById(id).addEventListener('input', calculate));
+
+        // 初始計算
+        calculate();
+
+        window.MathJax = { tex: { inlineMath: [['$', '$']] } };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</body>
+</html>
